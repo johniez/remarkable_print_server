@@ -34,7 +34,22 @@ in the reMarkable device.
 
 ## Installation
 
-TODO service setup.
+You need the ssh access to your device. Transfer service and binary to your device, like:
+
+```sh
+ssh root@remarkable mkdir ./bin
+scp pdf-print-server root@remarkable:./bin
+scp pdf-print-server.service root@remarkable:/etc/systemd/system
+```
+
+Then run commands in your remarkable ssh shell:
+```sh
+systemctl daemon-reload
+systemctl enable pdf-print-server.service
+systemctl start pdf-print-server.service
+```
+
+That's it. Now you can see the server is listening on the specified port, by running `netstat -lt` on the remarkable shell.
 
 ### Printer setup
 

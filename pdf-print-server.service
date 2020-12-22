@@ -1,0 +1,16 @@
+[Unit]
+Description=AppSocket/HP JetDirect reMarkable network print server.
+After=syslog.target network.target
+Requires=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/root/bin/pdf-print-server --port 9100
+Restart=on-failure
+
+LimitNPROC=4
+LimitNOFILE=16
+LimitNICE=5
+
+[Install]
+WantedBy=multi-user.target
