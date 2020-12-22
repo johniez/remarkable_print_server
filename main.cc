@@ -10,6 +10,7 @@
 #include <getopt.h>
 #include <uuid/uuid.h>
 
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -27,6 +28,7 @@ void printHelp(const std::string &binName) {
     std::cerr << "  -p, --port NUM     Listen on given port. Default 9100.\n";
     std::cerr << "  -d, --dir DIR      Write PDF files into specified directory. "
                                       "Default /home/root/.local/share/remarkable/xochitl/\n";
+    std::cerr << "  -n, --no-restart   Do not restart xochitl after pdf import.\n";
     std::cerr << "  -h, --help         Show this help.\n";
 }
 
@@ -276,16 +278,17 @@ int getTcpServerSocket(const std::string &port) {
 
 
 /// Parse command line arguments, return false if help should be printed.
-bool parseArgs(int argc, char *argv[], std::string &port, std::string &dir) {
+bool parseArgs(int argc, char *argv[], std::string &port, std::string &dir, bool &restart) {
     while (1) {
         static struct option long_options[] = {
             {"port", required_argument, 0, 'p'},
             {"dir",  required_argument, 0, 'd'},
+            {"no-restart", no_argument, 0, 'n'},
             {"help", no_argument,       0, 'h'},
             {0,      0,                 0, 0}
         };
 
-        const int c = getopt_long(argc, argv, "p:d:h", long_options, nullptr);
+        const int c = getopt_long(argc, argv, "p:d:hn", long_options, nullptr);
         if (c == -1) {
             break;
         }
@@ -296,6 +299,9 @@ bool parseArgs(int argc, char *argv[], std::string &port, std::string &dir) {
                 break;
             case 'd':
                 dir = optarg;
+                break;
+            case 'n':
+                restart = false;
                 break;
             case 'h':
                 return false;
@@ -310,8 +316,9 @@ bool parseArgs(int argc, char *argv[], std::string &port, std::string &dir) {
 int main(int argc, char *argv[]) {
     std::string port{"9100"};
     std::string dir{"/home/root/.local/share/remarkable/xochitl/"};
+    bool restartXochitl = true;
     // parse options from command line
-    if (!parseArgs(argc, argv, port, dir)) {
+    if (!parseArgs(argc, argv, port, dir, restartXochitl)) {
         printHelp(argv[0]);
         return 1;
     }
@@ -323,21 +330,28 @@ int main(int argc, char *argv[]) {
     }
  
     // process requests until process is killed
-	while (1) {
-		const int requestSock = accept4(sock, NULL, NULL, SOCK_CLOEXEC);
-		if (requestSock == -1) {
+    while (1) {
+        const int requestSock = accept4(sock, NULL, NULL, SOCK_CLOEXEC);
+        if (requestSock == -1) {
             std::cerr << "Failed to accept connection!\n";
-		} else {
+        } else {
             try {
                 // write pdf received from socket into dir
-    			handlePdfFromSock(requestSock, dir);
-                // TODO restart xochitl
+                handlePdfFromSock(requestSock, dir);
             } catch (const std::exception &e) {
                 std::cerr << "PDF receive error: " << e.what() << "\n";
             }
+
             close(requestSock);
-		}
-	}
+
+            if (restartXochitl) {
+                int restartStatus = std::system("systemctl restart xochitl.service");
+                if (restartStatus != 0) {
+                    std::cerr << "Failed to restart xochitl.\n";
+                }
+            }
+        }
+    }
 
     close(sock);
     return 0;
