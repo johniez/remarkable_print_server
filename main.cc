@@ -127,6 +127,8 @@ class ReceivedFile {
     void close() {
         // write metadata first, it still can fail and throw an exception
         writeMetaData();
+        // write .content file, which is needed by reMarkable 2.6+ fw
+        writeContentMetaData();
         // metadata successfuly written, close pdf file
         file.close();
     }
@@ -169,6 +171,23 @@ class ReceivedFile {
         }
         metadataFile << metadata;
         metadataFile.close();
+    }
+
+    void writeContentMetaData() const {
+        const char *const metadata =
+            "{\n"
+            "    \"coverPageNumber\": -1,\n"
+            "    \"dummyDocument\": false,\n"
+            "    \"fileType\": \"pdf\"\n"
+            "}";
+
+        std::ofstream contentMetadataFile{
+            std::string{dataDir + fileUuid + ".content"}.c_str(), std::ios::binary};
+        if (!contentMetadataFile.is_open()) {
+            throw std::runtime_error{"Failed to open .content file"};
+        }
+        contentMetadataFile << metadata;
+        contentMetadataFile.close();
     }
 };
 
